@@ -228,7 +228,7 @@ async function pollUntilTerminal({ baseUrl, runId, apiKey, pollIntervalMs, timeo
 // Job summary
 // ---------------------------------------------------------------------------
 
-function buildSummaryMarkdown({ testName, status, passed, failed, totalTests, durationMs, reportUrl, partial, notLaunched }) {
+function buildSummaryMarkdown({ testName, status, passed, failed, totalTests, durationMs, reportUrl, partial, notLaunched, needsReview }) {
   const lines = [
     '## DontBreak — E2E Test Suite',
     '',
@@ -237,6 +237,7 @@ function buildSummaryMarkdown({ testName, status, passed, failed, totalTests, du
     `**Passed:** ${passed ?? 'n/a'}${totalTests != null ? ` / ${totalTests}` : ''}`,
     `**Failed:** ${failed ?? 'n/a'}`,
     ...(partial ? [`**Partial run:** yes — ${notLaunched ?? 0} test(s) never launched`] : []),
+    ...(needsReview ? [`**Needs review:** ${needsReview} AI check(s) could not run because the AI service was unavailable`] : []),
   ];
   if (durationMs != null) {
     lines.push(`**Duration:** ${(durationMs / 1000).toFixed(1)}s`);
@@ -301,7 +302,7 @@ async function run() {
   });
 
   const outcome = decideOutcome(result, timedOut);
-  const { finalStatus, passed, failed, partial, notLaunched } = outcome;
+  const { finalStatus, passed, failed, partial, notLaunched, needsReview } = outcome;
   const reportUrl = result ? result.reportUrl ?? '' : '';
 
   setOutput('status', finalStatus);
@@ -309,6 +310,7 @@ async function run() {
   setOutput('failed', String(failed));
   setOutput('partial', String(partial));
   setOutput('not-launched', String(notLaunched));
+  setOutput('needs-review', String(needsReview));
   setOutput('report-url', reportUrl);
 
   writeSummary(
@@ -322,8 +324,13 @@ async function run() {
       reportUrl,
       partial,
       notLaunched,
+      needsReview,
     })
   );
+
+  if (needsReview > 0) {
+    warningAnnotation(`${needsReview} AI check(s) could not run because the AI service was unavailable. Check them in the report.`);
+  }
 
   if (timedOut) {
     errorAnnotation(
@@ -358,6 +365,9 @@ function decideOutcome(result, timedOut) {
   const failed = result ? result.failed ?? 0 : 0;
   const partial = Boolean(result && result.partial);
   const notLaunched = result ? result.notLaunched ?? 0 : 0;
+  // AI checks that couldn't run (AI service unavailable) don't fail the run,
+  // but they weren't verified either, so say so.
+  const needsReview = result ? result.needsReview ?? 0 : 0;
 
   let exitCode = 0;
   let message = `finished with status "${finalStatus}" (${passed} passed, ${failed} failed).`;
@@ -372,7 +382,11 @@ function decideOutcome(result, timedOut) {
     message = `finished with status "${finalStatus}" but the run was partial: ${notLaunched} test(s) never launched (${passed} passed, ${failed} failed). Treating as a failure.`;
   }
 
-  return { finalStatus, passed, failed, partial, notLaunched, exitCode, message };
+  if (needsReview > 0 && !timedOut) {
+    message += ` ${needsReview} AI check(s) could not run because the AI service was unavailable; check them in the report.`;
+  }
+
+  return { finalStatus, passed, failed, partial, notLaunched, needsReview, exitCode, message };
 }
 
 // Only auto-run when executed directly (`node index.mjs`), not when imported

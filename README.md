@@ -41,6 +41,7 @@ The action launches the suite through the DontBreak API, polls the run until it 
 | `failed` | Number of tests that failed. |
 | `partial` | `true` when some suite tests never launched (quota, capacity, cancelled stage). The step fails in that case even if `status` is `passed`. |
 | `not-launched` | Number of suite tests that never launched. |
+| `needs-review` | Number of AI checks that couldn't run because the AI service was unavailable. They don't fail the run; the step logs a warning and the job summary lists them. |
 | `report-url` | Link to the full report in DontBreak. |
 
 ## Gate behavior

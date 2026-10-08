@@ -217,3 +217,17 @@ test('decideOutcome fails on failed, cancelled and timeout', async () => {
   assert.equal(decideOutcome({ status: 'running' }, true).exitCode, 1);
   assert.equal(decideOutcome({ status: 'running' }, true).finalStatus, 'timeout');
 });
+
+test('decideOutcome keeps a run with unverified AI checks green but reports them', async () => {
+  const { decideOutcome } = await import('../index.mjs');
+  const outcome = decideOutcome({ status: 'passed', passed: 3, failed: 0, partial: false, notLaunched: 0, needsReview: 2 }, false);
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.needsReview, 2);
+  assert.match(outcome.message, /2 AI check\(s\) could not run/);
+});
+
+test('buildSummaryMarkdown lists AI checks that need review', async () => {
+  const { buildSummaryMarkdown } = await import('../index.mjs');
+  const md = buildSummaryMarkdown({ testName: 'Checkout', status: 'passed', passed: 3, failed: 0, totalTests: 3, needsReview: 1 });
+  assert.match(md, /\*\*Needs review:\*\* 1 AI check\(s\) could not run/);
+});

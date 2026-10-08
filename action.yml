@@ -43,6 +43,8 @@ outputs:
     description: '"true" when some suite tests never launched; the step fails in that case'
   not-launched:
     description: 'Number of suite tests that never launched'
+  needs-review:
+    description: 'Number of AI checks that could not run because the AI service was unavailable (the run does not fail for them)'
   report-url:
     description: 'Link to the full DontBreak report for this run.'
 runs:
